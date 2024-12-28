@@ -31,6 +31,7 @@ function UpcomingBlocks({ upcomingBlocks }: Props) {
           </div>
         );
       })}
+      <h1 className='title'>Sıradaki</h1>
     </div>
   );
 }

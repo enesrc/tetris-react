@@ -17,10 +17,18 @@ enum TickSpeed {
 
 export function useTetris() {
   const [score, setScore] = useState(0);
+  const [line, setLine] = useState(0);
   const [upcomingBlocks, setUpcomingBlocks] = useState<Block[]>([]);
   const [isCommitting, setIsCommitting] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [tickSpeed, setTickSpeed] = useState<TickSpeed | null>(null);
+  const [keyBindings, setKeyBindings] = useState({
+    left: 'ArrowLeft',
+    right: 'ArrowRight',
+    down: 'ArrowDown',
+    rotate: 'ArrowUp',
+  });
 
   const [
     { board, droppingRow, droppingColumn, droppingBlock, droppingShape },
@@ -34,12 +42,24 @@ export function useTetris() {
       getRandomBlock(),
     ];
     setScore(0);
+    setLine(0);
     setUpcomingBlocks(startingBlocks);
     setIsCommitting(false);
     setIsPlaying(true);
+    setIsPaused(false);
     setTickSpeed(TickSpeed.Normal);
     dispatchBoardState({ type: 'start' });
   }, [dispatchBoardState]);
+
+  const pauseGame = useCallback(() => {
+    setIsPaused(true);
+    setTickSpeed(null);
+  }, []);
+
+  const resumeGame = useCallback(() => {
+    setIsPaused(false);
+    setTickSpeed(TickSpeed.Normal);
+  }, []);
 
   const commitPosition = useCallback(() => {
     if (!hasCollisions(board, droppingShape, droppingRow + 1, droppingColumn)) {
@@ -77,6 +97,7 @@ export function useTetris() {
     }
     setUpcomingBlocks(newUpcomingBlocks);
     setScore((prevScore) => prevScore + getPoints(numCleared));
+    setLine((prevLine) => prevLine + numCleared);
     dispatchBoardState({
       type: 'commit',
       newBoard: [...getEmptyBoard(BOARD_HEIGHT - newBoard.length), ...newBoard],
@@ -115,14 +136,14 @@ export function useTetris() {
   ]);
 
   useInterval(() => {
-    if (!isPlaying) {
+    if (!isPlaying || isPaused) {
       return;
     }
     gameTick();
   }, tickSpeed);
 
   useEffect(() => {
-    if (!isPlaying) {
+    if (!isPlaying || isPaused) {
       return;
     }
 
@@ -151,39 +172,39 @@ export function useTetris() {
         return;
       }
 
-      if (event.key === 'ArrowDown') {
+      if (event.key === keyBindings.down) {
         setTickSpeed(TickSpeed.Fast);
       }
 
-      if (event.key === 'ArrowUp') {
+      if (event.key === keyBindings.rotate) {
         dispatchBoardState({
           type: 'move',
           isRotating: true,
         });
       }
 
-      if (event.key === 'ArrowLeft') {
+      if (event.key === keyBindings.left) {
         isPressingLeft = true;
         updateMovementInterval();
       }
 
-      if (event.key === 'ArrowRight') {
+      if (event.key === keyBindings.right) {
         isPressingRight = true;
         updateMovementInterval();
       }
     };
 
     const handleKeyUp = (event: KeyboardEvent) => {
-      if (event.key === 'ArrowDown') {
+      if (event.key === keyBindings.down) {
         setTickSpeed(TickSpeed.Normal);
       }
 
-      if (event.key === 'ArrowLeft') {
+      if (event.key === keyBindings.left) {
         isPressingLeft = false;
         updateMovementInterval();
       }
 
-      if (event.key === 'ArrowRight') {
+      if (event.key === keyBindings.right) {
         isPressingRight = false;
         updateMovementInterval();
       }
@@ -197,10 +218,10 @@ export function useTetris() {
       clearInterval(moveIntervalID);
       setTickSpeed(TickSpeed.Normal);
     };
-  }, [dispatchBoardState, isPlaying]);
+  }, [dispatchBoardState, isPlaying, isPaused, keyBindings]);
 
   const renderedBoard = structuredClone(board) as BoardShape;
-  if (isPlaying) {
+  if (isPlaying && !isPaused) {
     addShapeToBoard(
       renderedBoard,
       droppingBlock,
@@ -213,9 +234,15 @@ export function useTetris() {
   return {
     board: renderedBoard,
     startGame,
+    pauseGame,
+    resumeGame,
     isPlaying,
+    isPaused,
     score,
     upcomingBlocks,
+    line,
+    keyBindings,
+    setKeyBindings,
   };
 }
 
